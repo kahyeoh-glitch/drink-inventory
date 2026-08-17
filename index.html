@@ -13,23 +13,20 @@
         <p class="subtitle">Bottled drinks sold at Grain</p>
       </header>
 
-      <form id="add-form">
-        <input id="add-name" type="text" placeholder="Drink name" required autocomplete="off" />
-        <input id="add-unit" type="text" placeholder="Unit (e.g. bottle, can)" required autocomplete="off" />
-        <input id="add-quantity" type="number" placeholder="Quantity" min="0" step="1" required />
-        <button type="submit">Add drink</button>
-      </form>
+      <div class="date-picker">
+        <label for="sale-date">Date</label>
+        <input id="sale-date" type="date" />
+        <span id="total-summary" class="total-summary"></span>
+      </div>
 
       <p id="error" class="error" hidden></p>
-      <p id="empty" class="empty" hidden>No drinks yet — add one above.</p>
+      <p id="range-note" class="range-note" hidden></p>
 
       <table id="drinks-table" hidden>
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Unit</th>
-            <th>Quantity</th>
-            <th></th>
+            <th>Drink</th>
+            <th>Quantity sold</th>
           </tr>
         </thead>
         <tbody id="drinks-body"></tbody>

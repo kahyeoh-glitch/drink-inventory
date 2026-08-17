@@ -1,10 +1,13 @@
-const SCHEMA = `
+const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS drinks (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  unit TEXT NOT NULL,
-  quantity INTEGER NOT NULL DEFAULT 0,
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  code TEXT PRIMARY KEY,
+  name TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS sales (
+  drink_code TEXT NOT NULL,
+  sale_date TEXT NOT NULL,
+  quantity INTEGER NOT NULL,
+  PRIMARY KEY (drink_code, sale_date)
 );
 `;
 
@@ -15,81 +18,108 @@ function json(data, status = 200) {
   });
 }
 
-function isValidQuantity(value) {
-  return Number.isFinite(value) && value >= 0 && Number.isInteger(value);
+async function fetchSeedAsset(env, requestUrl, path) {
+  const assetUrl = new URL(path, requestUrl);
+  const res = await env.ASSETS.fetch(new Request(assetUrl));
+  if (!res.ok) throw new Error(`missing seed asset ${path}`);
+  return res.json();
+}
+
+async function loadSeed(env, requestUrl) {
+  const drinks = await fetchSeedAsset(env, requestUrl, '/seed/drinks.json');
+  const manifest = await fetchSeedAsset(env, requestUrl, '/seed/manifest.json');
+
+  const sales = [];
+  for (let i = 0; i < manifest.chunkCount; i++) {
+    const chunk = await fetchSeedAsset(env, requestUrl, `/seed/sales-${i}.json`);
+    sales.push(...chunk);
+  }
+
+  return { drinks, sales };
 }
 
 async function ensureSchema(db) {
-  await db.prepare(SCHEMA).run();
+  await db.exec(SCHEMA_SQL);
 }
 
-async function listDrinks(db) {
-  const { results } = await db.prepare('SELECT * FROM drinks ORDER BY name').all();
-  return json(results);
+async function ensureSeeded(db, env, requestUrl) {
+  const row = await db.prepare('SELECT COUNT(*) as count FROM sales').first();
+  if (row.count > 0) return;
+
+  const seed = await loadSeed(env, requestUrl);
+
+  const drinkStmts = seed.drinks.map((d) =>
+    db.prepare('INSERT OR IGNORE INTO drinks (code, name) VALUES (?, ?)').bind(d.code, d.name)
+  );
+  await db.batch(drinkStmts);
+
+  const CHUNK = 20;
+  const BATCH_SIZE = 50;
+  const saleStmts = [];
+  for (let i = 0; i < seed.sales.length; i += CHUNK) {
+    const chunk = seed.sales.slice(i, i + CHUNK);
+    const placeholders = chunk.map(() => '(?, ?, ?)').join(', ');
+    const values = chunk.flat();
+    saleStmts.push(
+      db
+        .prepare(`INSERT OR IGNORE INTO sales (drink_code, sale_date, quantity) VALUES ${placeholders}`)
+        .bind(...values)
+    );
+  }
+  for (let i = 0; i < saleStmts.length; i += BATCH_SIZE) {
+    await db.batch(saleStmts.slice(i, i + BATCH_SIZE));
+  }
 }
 
-async function createDrink(db, request) {
-  const body = await request.json().catch(() => ({}));
-  const name = String(body.name || '').trim();
-  const unit = String(body.unit || '').trim();
-  const quantity = Number(body.quantity);
-
-  if (!name || !unit) return json({ error: 'name and unit are required' }, 400);
-  if (!isValidQuantity(quantity)) return json({ error: 'quantity must be a non-negative whole number' }, 400);
-
+async function getMeta(db) {
   const row = await db
-    .prepare("INSERT INTO drinks (name, unit, quantity, updated_at) VALUES (?, ?, ?, datetime('now')) RETURNING *")
-    .bind(name, unit, quantity)
+    .prepare(
+      'SELECT MIN(sale_date) as min_date, MAX(sale_date) as max_date, COUNT(DISTINCT drink_code) as drink_count FROM sales'
+    )
     .first();
-
-  return json(row, 201);
-}
-
-async function updateDrink(db, request, id) {
-  const existing = await db.prepare('SELECT * FROM drinks WHERE id = ?').bind(id).first();
-  if (!existing) return json({ error: 'drink not found' }, 404);
-
-  const body = await request.json().catch(() => ({}));
-  const name = body.name !== undefined ? String(body.name).trim() : existing.name;
-  const unit = body.unit !== undefined ? String(body.unit).trim() : existing.unit;
-  const quantity = body.quantity !== undefined ? Number(body.quantity) : existing.quantity;
-
-  if (!name || !unit) return json({ error: 'name and unit are required' }, 400);
-  if (!isValidQuantity(quantity)) return json({ error: 'quantity must be a non-negative whole number' }, 400);
-
-  const row = await db
-    .prepare("UPDATE drinks SET name = ?, unit = ?, quantity = ?, updated_at = datetime('now') WHERE id = ? RETURNING *")
-    .bind(name, unit, quantity, id)
-    .first();
-
   return json(row);
 }
 
-async function deleteDrink(db, id) {
-  await db.prepare('DELETE FROM drinks WHERE id = ?').bind(id).run();
-  return new Response(null, { status: 204 });
+async function listDrinks(db) {
+  const { results } = await db.prepare('SELECT code, name FROM drinks ORDER BY name').all();
+  return json(results);
+}
+
+async function getSalesForDate(db, date) {
+  const { results } = await db
+    .prepare(
+      `SELECT d.code, d.name, COALESCE(s.quantity, 0) as quantity
+       FROM drinks d
+       LEFT JOIN sales s ON s.drink_code = d.code AND s.sale_date = ?
+       ORDER BY quantity DESC, d.name`
+    )
+    .bind(date)
+    .all();
+  return json(results);
 }
 
 async function handleApi(request, env, url) {
   const db = env.APP_DB;
   await ensureSchema(db);
+  await ensureSeeded(db, env, url);
 
-  const segments = url.pathname.split('/').filter(Boolean); // ['api', 'drinks', maybe id]
+  const segments = url.pathname.split('/').filter(Boolean); // ['api', ...]
+  const resource = segments[1];
 
-  if (segments[1] !== 'drinks') return json({ error: 'not found' }, 404);
-
-  if (segments.length === 2) {
-    if (request.method === 'GET') return listDrinks(db);
-    if (request.method === 'POST') return createDrink(db, request);
-    return json({ error: 'method not allowed' }, 405);
+  if (resource === 'meta' && segments.length === 2 && request.method === 'GET') {
+    return getMeta(db);
   }
 
-  if (segments.length === 3) {
-    const id = Number(segments[2]);
-    if (!Number.isInteger(id)) return json({ error: 'invalid id' }, 400);
-    if (request.method === 'PATCH') return updateDrink(db, request, id);
-    if (request.method === 'DELETE') return deleteDrink(db, id);
-    return json({ error: 'method not allowed' }, 405);
+  if (resource === 'drinks' && segments.length === 2 && request.method === 'GET') {
+    return listDrinks(db);
+  }
+
+  if (resource === 'sales' && segments.length === 2 && request.method === 'GET') {
+    const date = url.searchParams.get('date');
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return json({ error: 'date=YYYY-MM-DD query param is required' }, 400);
+    }
+    return getSalesForDate(db, date);
   }
 
   return json({ error: 'not found' }, 404);

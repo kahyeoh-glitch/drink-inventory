@@ -1,17 +1,19 @@
-interface Drink {
-  id: number;
+interface DrinkSale {
+  code: string;
   name: string;
-  unit: string;
   quantity: number;
-  updated_at: string;
 }
 
-const form = document.querySelector<HTMLFormElement>('#add-form')!;
-const nameInput = document.querySelector<HTMLInputElement>('#add-name')!;
-const unitInput = document.querySelector<HTMLInputElement>('#add-unit')!;
-const quantityInput = document.querySelector<HTMLInputElement>('#add-quantity')!;
+interface Meta {
+  min_date: string;
+  max_date: string;
+  drink_count: number;
+}
+
+const dateInput = document.querySelector<HTMLInputElement>('#sale-date')!;
+const totalSummary = document.querySelector<HTMLSpanElement>('#total-summary')!;
 const errorEl = document.querySelector<HTMLParagraphElement>('#error')!;
-const emptyEl = document.querySelector<HTMLParagraphElement>('#empty')!;
+const rangeNote = document.querySelector<HTMLParagraphElement>('#range-note')!;
 const table = document.querySelector<HTMLTableElement>('#drinks-table')!;
 const tbody = document.querySelector<HTMLTableSectionElement>('#drinks-body')!;
 
@@ -24,133 +26,64 @@ function clearError() {
   errorEl.hidden = true;
 }
 
-async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const res = await fetch(path, {
-    ...options,
-    headers: { 'content-type': 'application/json', ...options.headers },
-  });
+async function api<T>(path: string): Promise<T> {
+  const res = await fetch(path);
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || `Request failed (${res.status})`);
   }
-  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 
-function renderDrinks(drinks: Drink[]) {
+function renderSales(sales: DrinkSale[]) {
   tbody.innerHTML = '';
-
-  if (drinks.length === 0) {
-    table.hidden = true;
-    emptyEl.hidden = false;
-    return;
-  }
-
-  emptyEl.hidden = true;
   table.hidden = false;
 
-  for (const drink of drinks) {
+  let total = 0;
+  for (const sale of sales) {
+    total += sale.quantity;
     const tr = document.createElement('tr');
 
     const nameTd = document.createElement('td');
-    nameTd.textContent = drink.name;
-
-    const unitTd = document.createElement('td');
-    unitTd.textContent = drink.unit;
+    nameTd.textContent = sale.name;
 
     const qtyTd = document.createElement('td');
-    const controls = document.createElement('div');
-    controls.className = 'qty-controls';
+    qtyTd.textContent = String(sale.quantity);
+    if (sale.quantity === 0) qtyTd.className = 'qty-zero';
 
-    const minusBtn = document.createElement('button');
-    minusBtn.type = 'button';
-    minusBtn.textContent = '−';
-    minusBtn.disabled = drink.quantity <= 0;
-    minusBtn.addEventListener('click', () => adjustQuantity(drink, -1));
-
-    const qtyValue = document.createElement('span');
-    qtyValue.className = 'qty-value';
-    qtyValue.textContent = String(drink.quantity);
-
-    const plusBtn = document.createElement('button');
-    plusBtn.type = 'button';
-    plusBtn.textContent = '+';
-    plusBtn.addEventListener('click', () => adjustQuantity(drink, 1));
-
-    controls.append(minusBtn, qtyValue, plusBtn);
-    qtyTd.appendChild(controls);
-
-    const actionsTd = document.createElement('td');
-    const deleteBtn = document.createElement('button');
-    deleteBtn.type = 'button';
-    deleteBtn.className = 'row-delete';
-    deleteBtn.textContent = 'Remove';
-    deleteBtn.addEventListener('click', () => deleteDrink(drink));
-    actionsTd.appendChild(deleteBtn);
-
-    tr.append(nameTd, unitTd, qtyTd, actionsTd);
+    tr.append(nameTd, qtyTd);
     tbody.appendChild(tr);
   }
+
+  totalSummary.textContent = `${total} bottles sold`;
 }
 
-async function loadDrinks() {
+async function loadSalesForDate(date: string) {
   try {
-    const drinks = await api<Drink[]>('/api/drinks');
+    const sales = await api<DrinkSale[]>(`/api/sales?date=${encodeURIComponent(date)}`);
     clearError();
-    renderDrinks(drinks);
+    renderSales(sales);
   } catch (err) {
-    showError(err instanceof Error ? err.message : 'Failed to load drinks');
-  }
-}
-
-async function adjustQuantity(drink: Drink, delta: number) {
-  const quantity = Math.max(0, drink.quantity + delta);
-  try {
-    await api(`/api/drinks/${drink.id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ quantity }),
-    });
-    clearError();
-    await loadDrinks();
-  } catch (err) {
-    showError(err instanceof Error ? err.message : 'Failed to update quantity');
+    showError(err instanceof Error ? err.message : 'Failed to load sales');
   }
 }
 
-async function deleteDrink(drink: Drink) {
+async function init() {
   try {
-    await api(`/api/drinks/${drink.id}`, { method: 'DELETE' });
-    clearError();
-    await loadDrinks();
+    const meta = await api<Meta>('/api/meta');
+    dateInput.min = meta.min_date;
+    dateInput.max = meta.max_date;
+    dateInput.value = meta.max_date;
+    rangeNote.textContent = `Showing historical Grain sales data from ${meta.min_date} to ${meta.max_date} (${meta.drink_count} bottled drinks tracked).`;
+    rangeNote.hidden = false;
+    await loadSalesForDate(meta.max_date);
   } catch (err) {
-    showError(err instanceof Error ? err.message : 'Failed to remove drink');
+    showError(err instanceof Error ? err.message : 'Failed to load data');
   }
 }
 
-form.addEventListener('submit', async (event) => {
-  event.preventDefault();
-
-  const name = nameInput.value.trim();
-  const unit = unitInput.value.trim();
-  const quantity = Number(quantityInput.value);
-
-  if (!name || !unit || !Number.isFinite(quantity) || quantity < 0) {
-    showError('Enter a name, unit, and non-negative quantity.');
-    return;
-  }
-
-  try {
-    await api('/api/drinks', {
-      method: 'POST',
-      body: JSON.stringify({ name, unit, quantity }),
-    });
-    clearError();
-    form.reset();
-    nameInput.focus();
-    await loadDrinks();
-  } catch (err) {
-    showError(err instanceof Error ? err.message : 'Failed to add drink');
-  }
+dateInput.addEventListener('change', () => {
+  if (dateInput.value) loadSalesForDate(dateInput.value);
 });
 
-loadDrinks();
+init();

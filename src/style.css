@@ -50,16 +50,21 @@ header h1 {
   color: var(--muted);
 }
 
-#add-form {
+.date-picker {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
 }
 
-#add-form input {
-  flex: 1 1 140px;
-  padding: 0.55rem 0.7rem;
+.date-picker label {
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.date-picker input[type='date'] {
+  padding: 0.5rem 0.7rem;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--surface);
@@ -67,22 +72,15 @@ header h1 {
   font-size: 0.95rem;
 }
 
-#add-quantity {
-  flex: 0 1 100px;
-}
-
-button {
-  cursor: pointer;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.95rem;
-}
-
-#add-form button {
-  padding: 0.55rem 1.1rem;
-  background: var(--accent);
-  color: var(--accent-text);
+.total-summary {
+  color: var(--muted);
   font-weight: 600;
+}
+
+.range-note {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0 0 1.5rem;
 }
 
 table {
@@ -111,31 +109,8 @@ tr:last-child td {
   border-bottom: none;
 }
 
-.qty-controls {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.qty-controls button {
-  width: 1.75rem;
-  height: 1.75rem;
-  background: var(--border);
-  color: var(--text);
-  font-weight: 700;
-  line-height: 1;
-}
-
-.qty-controls .qty-value {
-  min-width: 2ch;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
-.row-delete {
-  background: transparent;
-  color: var(--danger);
-  padding: 0.3rem 0.5rem;
+.qty-zero {
+  color: var(--muted);
 }
 
 .error {
@@ -144,8 +119,4 @@ tr:last-child td {
   border: 1px solid var(--danger);
   border-radius: 6px;
   padding: 0.6rem 0.8rem;
-}
-
-.empty {
-  color: var(--muted);
 }
