@@ -14,8 +14,12 @@ function json(data, status = 200) {
 }
 
 async function ensureSchema(db) {
-  const { results: drinkCols } = await db.prepare('PRAGMA table_info(drinks)').all();
-  const hasCodeColumn = drinkCols.some((c) => c.name === 'code');
+  let hasCodeColumn = true;
+  try {
+    await db.prepare('SELECT code FROM drinks LIMIT 1').all();
+  } catch {
+    hasCodeColumn = false;
+  }
   if (!hasCodeColumn) {
     await db.prepare('DROP TABLE IF EXISTS drinks').run();
   }
