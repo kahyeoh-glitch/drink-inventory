@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Drink Inventory</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <h1>Drink Inventory</h1>
+        <p class="subtitle">Bottled drinks sold at Grain</p>
+      </header>
+
+      <form id="add-form">
+        <input id="add-name" type="text" placeholder="Drink name" required autocomplete="off" />
+        <input id="add-unit" type="text" placeholder="Unit (e.g. bottle, can)" required autocomplete="off" />
+        <input id="add-quantity" type="number" placeholder="Quantity" min="0" step="1" required />
+        <button type="submit">Add drink</button>
+      </form>
+
+      <p id="error" class="error" hidden></p>
+      <p id="empty" class="empty" hidden>No drinks yet — add one above.</p>
+
+      <table id="drinks-table" hidden>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Unit</th>
+            <th>Quantity</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="drinks-body"></tbody>
+      </table>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

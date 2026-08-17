@@ -1,0 +1,151 @@
+:root {
+  color-scheme: light dark;
+  --bg: #f7f5f2;
+  --surface: #ffffff;
+  --text: #1f1b16;
+  --muted: #6b6258;
+  --border: #e4ddd3;
+  --accent: #8a5a3b;
+  --accent-text: #ffffff;
+  --danger: #b3432b;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17140f;
+    --surface: #221e18;
+    --text: #f2ede4;
+    --muted: #b4a998;
+    --border: #3a342a;
+    --accent: #c98a5e;
+    --accent-text: #17140f;
+    --danger: #e18068;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+#app {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+}
+
+header h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.75rem;
+}
+
+.subtitle {
+  margin: 0 0 1.5rem;
+  color: var(--muted);
+}
+
+#add-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+#add-form input {
+  flex: 1 1 140px;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+#add-quantity {
+  flex: 0 1 100px;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+#add-form button {
+  padding: 0.55rem 1.1rem;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+th, td {
+  text-align: left;
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+
+th {
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+.qty-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.qty-controls button {
+  width: 1.75rem;
+  height: 1.75rem;
+  background: var(--border);
+  color: var(--text);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.qty-controls .qty-value {
+  min-width: 2ch;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.row-delete {
+  background: transparent;
+  color: var(--danger);
+  padding: 0.3rem 0.5rem;
+}
+
+.error {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+  padding: 0.6rem 0.8rem;
+}
+
+.empty {
+  color: var(--muted);
+}
