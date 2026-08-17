@@ -13,34 +13,67 @@ function json(data, status = 200) {
   });
 }
 
+function wrapStep(step, err) {
+  const msg = err instanceof Error ? err.message : String(err);
+  return new Error(`[${step}] ${msg}`);
+}
+
 async function ensureSchema(db) {
+  if (typeof db === 'undefined' || db === null) {
+    throw new Error('[ensureSchema] env.APP_DB is not bound');
+  }
+
   let hasCodeColumn = true;
   try {
     await db.prepare('SELECT code FROM drinks LIMIT 1').all();
   } catch {
     hasCodeColumn = false;
   }
+
   if (!hasCodeColumn) {
-    await db.prepare('DROP TABLE IF EXISTS drinks').run();
+    try {
+      await db.prepare('DROP TABLE IF EXISTS drinks').run();
+    } catch (err) {
+      throw wrapStep('drop-drinks', err);
+    }
   }
-  await db
-    .prepare('CREATE TABLE IF NOT EXISTS drinks (code TEXT PRIMARY KEY, name TEXT NOT NULL)')
-    .run();
-  await db
-    .prepare(
-      'CREATE TABLE IF NOT EXISTS sales (drink_code TEXT NOT NULL, sale_date TEXT NOT NULL, quantity INTEGER NOT NULL, PRIMARY KEY (drink_code, sale_date))'
-    )
-    .run();
+
+  try {
+    await db
+      .prepare('CREATE TABLE IF NOT EXISTS drinks (code TEXT PRIMARY KEY, name TEXT NOT NULL)')
+      .run();
+  } catch (err) {
+    throw wrapStep('create-drinks', err);
+  }
+
+  try {
+    await db
+      .prepare(
+        'CREATE TABLE IF NOT EXISTS sales (drink_code TEXT NOT NULL, sale_date TEXT NOT NULL, quantity INTEGER NOT NULL, PRIMARY KEY (drink_code, sale_date))'
+      )
+      .run();
+  } catch (err) {
+    throw wrapStep('create-sales', err);
+  }
 }
 
 async function ensureSeeded(db) {
-  const row = await db.prepare('SELECT COUNT(*) as count FROM sales').first();
+  let row;
+  try {
+    row = await db.prepare('SELECT COUNT(*) as count FROM sales').first();
+  } catch (err) {
+    throw wrapStep('count-sales', err);
+  }
   if (row.count > 0) return;
 
   const drinkStmts = SEED_DRINKS.map((d) =>
     db.prepare('INSERT OR IGNORE INTO drinks (code, name) VALUES (?, ?)').bind(d.code, d.name)
   );
-  await db.batch(drinkStmts);
+  try {
+    await db.batch(drinkStmts);
+  } catch (err) {
+    throw wrapStep('seed-drinks', err);
+  }
 
   const CHUNK = 20;
   const BATCH_SIZE = 50;
@@ -55,8 +88,12 @@ async function ensureSeeded(db) {
         .bind(...values)
     );
   }
-  for (let i = 0; i < saleStmts.length; i += BATCH_SIZE) {
-    await db.batch(saleStmts.slice(i, i + BATCH_SIZE));
+  try {
+    for (let i = 0; i < saleStmts.length; i += BATCH_SIZE) {
+      await db.batch(saleStmts.slice(i, i + BATCH_SIZE));
+    }
+  } catch (err) {
+    throw wrapStep('seed-sales', err);
   }
 }
 
