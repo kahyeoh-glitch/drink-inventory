@@ -1,16 +1,3 @@
-const SCHEMA_SQL = `
-CREATE TABLE IF NOT EXISTS drinks (
-  code TEXT PRIMARY KEY,
-  name TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS sales (
-  drink_code TEXT NOT NULL,
-  sale_date TEXT NOT NULL,
-  quantity INTEGER NOT NULL,
-  PRIMARY KEY (drink_code, sale_date)
-);
-`;
-
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -39,7 +26,14 @@ async function loadSeed(env, requestUrl) {
 }
 
 async function ensureSchema(db) {
-  await db.exec(SCHEMA_SQL);
+  await db
+    .prepare('CREATE TABLE IF NOT EXISTS drinks (code TEXT PRIMARY KEY, name TEXT NOT NULL)')
+    .run();
+  await db
+    .prepare(
+      'CREATE TABLE IF NOT EXISTS sales (drink_code TEXT NOT NULL, sale_date TEXT NOT NULL, quantity INTEGER NOT NULL, PRIMARY KEY (drink_code, sale_date))'
+    )
+    .run();
 }
 
 async function ensureSeeded(db, env, requestUrl) {
