@@ -1,12 +1,14 @@
-import { copyFileSync, readdirSync } from 'node:fs';
+import { build } from 'esbuild';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const workerDir = join(root, 'worker');
 
-for (const file of readdirSync(workerDir)) {
-  if (file.endsWith('.js')) {
-    copyFileSync(join(workerDir, file), join(root, 'dist', file));
-  }
-}
+await build({
+  entryPoints: [join(root, 'worker', '_worker.js')],
+  outfile: join(root, 'dist', '_worker.js'),
+  bundle: true,
+  format: 'esm',
+  platform: 'neutral',
+  target: 'es2022',
+});
